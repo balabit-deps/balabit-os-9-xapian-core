@@ -1,0 +1,48 @@
+#!/bin/sh
+set -e
+
+db=$AUTOPKGTEST_TMP/db
+dbc=$AUTOPKGTEST_TMP/dbc
+out=$AUTOPKGTEST_TMP/out
+
+echo "*** Testing creating a simple database"
+/usr/lib/xapian-examples/examples/simpleindex "$db" <<END
+first post
+
+second document
+
+document three
+
+article four
+END
+
+echo "*** Testing xapian-check"
+/usr/bin/xapian-check "$db" ""
+
+echo "*** Testing database stats"
+/usr/bin/xapian-delve "$db"|grep '^\(number of documents\|average document length\|document length ...er bound\|highest document id ever used\|has positional information\|currently open for writing\) = ' > "$out"
+diff - "$out" <<END
+number of documents = 4
+average document length = 4
+document length lower bound = 4
+document length upper bound = 4
+highest document id ever used = 4
+has positional information = true
+currently open for writing = false
+END
+
+echo "*** Testing simple search"
+/usr/bin/quest -d "$db" documents > "$out"
+diff - "$out" <<END
+Parsed Query: Query(Zdocument@1)
+Exactly 2 matches
+MSet:
+2: [0.405465]
+second document
+3: [0.405465]
+document three
+END
+
+echo "*** Testing compaction"
+/usr/bin/xapian-compact "$db" "$dbc"
+/usr/bin/xapian-check "$dbc" ""
